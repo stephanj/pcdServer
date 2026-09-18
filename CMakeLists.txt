@@ -25,6 +25,7 @@ add_library(pcd_core STATIC
     src/engine/schema.cpp
     src/engine/scorer.cpp
     src/engine/llama_runtime.cpp
+    src/engine/schema_cache.cpp
 )
 target_include_directories(pcd_core PUBLIC include)
 target_link_libraries(pcd_core PUBLIC llama nlohmann_json::nlohmann_json)
@@ -38,6 +39,7 @@ add_executable(pcd_tests
     tests/schema_test.cpp
     tests/scorer_test.cpp
     tests/llama_runtime_test.cpp
+    tests/schema_cache_test.cpp
 )
 target_link_libraries(pcd_tests PRIVATE pcd_core Catch2::Catch2WithMain)
 catch_discover_tests(pcd_tests)
