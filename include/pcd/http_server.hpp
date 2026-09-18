@@ -13,7 +13,7 @@ namespace pcd {
 
 struct HttpServerOptions {
     std::string bind{"127.0.0.1"};
-    int port{8080};  // 0 selects a free port
+    int port{8090};  // 0 selects a free port
     std::size_t max_body_bytes{1024 * 1024};
 };
 

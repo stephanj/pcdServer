@@ -11,7 +11,7 @@ namespace {
 
 struct Config {
     std::string bind{"127.0.0.1"};
-    int port{8080};
+    int port{8090};
     std::filesystem::path models_dir{"models"};
     std::filesystem::path model;
     std::size_t cache_entries{32};
@@ -21,7 +21,7 @@ struct Config {
 void usage(const char * argv0) {
     std::cerr << "usage: " << argv0 << " [options]\n"
               << "  --bind ADDRESS        default 127.0.0.1\n"
-              << "  --port PORT           default 8080\n"
+              << "  --port PORT           default 8090\n"
               << "  --models-dir PATH     default models\n"
               << "  --model PATH          overrides PCD_GGUF and the default model\n"
               << "  --cache-entries N     default 32\n"
