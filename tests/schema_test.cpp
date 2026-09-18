@@ -62,7 +62,7 @@ TEST_CASE("field suffix text opens the JSON member for each kind") {
     auto fields = sample_request().fields;
     REQUIRE(pcd::field_suffix_text(fields[0], "") == "  \"a\": \"");
     REQUIRE(pcd::field_suffix_text(fields[0], "TIER_") == "  \"a\": \"TIER_");
-    REQUIRE(pcd::field_suffix_text(fields[1], "") == "  \"b\": ");
+    REQUIRE(pcd::field_suffix_text(fields[1], "") == "  \"b\":");
 }
 
 TEST_CASE("candidate remainders are JSON escaped and strings are closed") {
@@ -70,7 +70,7 @@ TEST_CASE("candidate remainders are JSON escaped and strings are closed") {
     auto strings = pcd::candidate_texts(fields[0], "");
     REQUIRE(strings == std::vector<std::string>{"X\"", "Y\""});
     auto booleans = pcd::candidate_texts(fields[1], "");
-    REQUIRE(booleans == std::vector<std::string>{"false", "true"});
+    REQUIRE(booleans == std::vector<std::string>{" false", " true"});
 
     pcd::FieldSpec quoted{"q", "d", pcd::FieldKind::StringEnum, {std::string("a\"b"), std::string("a\\c")}};
     REQUIRE(pcd::candidate_texts(quoted, "a") == std::vector<std::string>{"\\\"b\"", "\\\\c\""});

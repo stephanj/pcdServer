@@ -25,7 +25,7 @@ struct TemplateParts {
 
 struct CompiledField {
     FieldSpec spec;
-    std::vector<int32_t> suffix_tokens;                // `  "name": "` (+ common prefix) or `  "name": `
+    std::vector<int32_t> suffix_tokens;                // `  "name": "` (+ common prefix) or `  "name":`
     std::string common_prefix;                         // longest shared character prefix of string choices
     std::vector<std::vector<int32_t>> choice_tokens;   // per choice: remainder tokens (+ closing quote for strings)
 };

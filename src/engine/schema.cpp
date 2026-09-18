@@ -88,9 +88,11 @@ std::string schema_system_prompt(const std::vector<FieldSpec> & fields) {
 }
 
 std::string field_suffix_text(const FieldSpec & field, std::string_view common_prefix) {
-    std::string text = "  \"" + json_escape(field.name) + "\": ";
+    // Booleans end at the colon so " true"/" false" keep their natural
+    // space-prefixed tokens; strings open the quote here.
+    std::string text = "  \"" + json_escape(field.name) + "\":";
     if (field.kind == FieldKind::StringEnum) {
-        text += "\"";
+        text += " \"";
         text += json_escape(common_prefix);
     }
     return text;
@@ -101,7 +103,7 @@ std::vector<std::string> candidate_texts(const FieldSpec & field, std::string_vi
     out.reserve(field.choices.size());
     for (const auto & choice : field.choices) {
         if (field.kind == FieldKind::Boolean) {
-            out.push_back(choice_label(choice));
+            out.push_back(" " + choice_label(choice));
             continue;
         }
         const auto & text = std::get<std::string>(choice);
