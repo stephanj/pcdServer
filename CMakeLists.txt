@@ -23,6 +23,7 @@ FetchContent_MakeAvailable(llama_cpp httplib json Catch2)
 add_library(pcd_core STATIC
     src/types.cpp
     src/engine/schema.cpp
+    src/engine/scorer.cpp
 )
 target_include_directories(pcd_core PUBLIC include)
 target_link_libraries(pcd_core PUBLIC llama nlohmann_json::nlohmann_json)
@@ -34,6 +35,7 @@ add_executable(pcd_tests
     tests/version_test.cpp
     tests/types_test.cpp
     tests/schema_test.cpp
+    tests/scorer_test.cpp
 )
 target_link_libraries(pcd_tests PRIVATE pcd_core Catch2::Catch2WithMain)
 catch_discover_tests(pcd_tests)
