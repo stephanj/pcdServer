@@ -154,6 +154,7 @@ json to_json_response(const DecodeResponse & response) {
             {"phasesMs", {
                 {"tokenize", m.phases.tokenize_ms},
                 {"restoreOrPrefill", m.phases.restore_or_prefill_ms},
+                {"dynamicContext", m.phases.dynamic_context_ms},
                 {"broadcast", m.phases.broadcast_ms},
                 {"suffix", m.phases.suffix_ms},
                 {"tree", m.phases.tree_ms},

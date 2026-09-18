@@ -101,7 +101,7 @@ TEST_CASE("responses serialize to the documented JSON shape") {
     response.metrics.elapsed_ms = 108.4;
     response.metrics.forward_passes = 2;
     response.metrics.schema_cache_status = "hit";
-    response.metrics.phases = {0.4, 42.0, 0.2, 64.9, 0.9};
+    response.metrics.phases = {0.4, 42.0, 3.5, 0.2, 64.9, 0.9};
 
     auto out = pcd::to_json_response(response);
     REQUIRE(out["model"] == "m.gguf");
@@ -119,6 +119,7 @@ TEST_CASE("responses serialize to the documented JSON shape") {
     REQUIRE(out["metrics"]["forwardPasses"] == 2);
     REQUIRE(out["metrics"]["schemaCacheStatus"] == "hit");
     REQUIRE(out["metrics"]["phasesMs"]["restoreOrPrefill"].get<double>() == Catch::Approx(42.0));
+    REQUIRE(out["metrics"]["phasesMs"]["dynamicContext"].get<double>() == Catch::Approx(3.5));
     REQUIRE(out["metrics"]["phasesMs"]["tree"].get<double>() == Catch::Approx(0.9));
 }
 

@@ -1,0 +1,20 @@
+{
+  "context": "Customer requested an unusual wire transfer of 48,000 EUR to a newly added beneficiary in another country, minutes after changing their contact email and phone number from an unrecognised device. The customer's normal activity is small domestic card payments.",
+  "fields": [
+    {
+      "name": "priority",
+      "description": "Required handling priority for the support team",
+      "choices": ["LOW", "MEDIUM", "HIGH"]
+    },
+    {
+      "name": "fraudulent",
+      "description": "Whether fraud is suspected",
+      "choices": [false, true]
+    },
+    {
+      "name": "tier",
+      "description": "Escalation tier for the risk desk",
+      "choices": ["TIER_1_LOW", "TIER_2_MEDIUM", "TIER_3_HIGH"]
+    }
+  ]
+}

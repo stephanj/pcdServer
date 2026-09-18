@@ -39,6 +39,9 @@ target_link_libraries(pcd_http PUBLIC pcd_core httplib::httplib)
 add_executable(pcd_server src/main.cpp)
 target_link_libraries(pcd_server PRIVATE pcd_http)
 
+add_executable(pcd_bench src/benchmark.cpp)
+target_link_libraries(pcd_bench PRIVATE pcd_core)
+
 enable_testing()
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)

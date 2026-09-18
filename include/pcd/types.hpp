@@ -43,7 +43,7 @@ struct FieldResult {
 };
 
 struct PhaseTimings {
-    double tokenize_ms{}, restore_or_prefill_ms{}, broadcast_ms{}, suffix_ms{}, tree_ms{};
+    double tokenize_ms{}, restore_or_prefill_ms{}, dynamic_context_ms{}, broadcast_ms{}, suffix_ms{}, tree_ms{};
 };
 
 struct DecodeMetrics {

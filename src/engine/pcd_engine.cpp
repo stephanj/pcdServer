@@ -182,7 +182,7 @@ DecodeResponse PcdEngine::decode(const DecodeRequest & request) {
     }
     metrics.phases.restore_or_prefill_ms = ms_since(phase);
 
-    // Dynamic context: user text, user close, assistant open, JSON object start.
+    // Phase: dynamic context (user text, user close, assistant open, JSON object start).
     phase = Clock::now();
     runtime_.decode_single_sequence(dynamic_tokens, prefix_seq, prefix_len, false);
     forward_passes += static_cast<int>((dynamic_tokens.size() + runtime_.batch_size() - 1) / runtime_.batch_size());
@@ -191,8 +191,10 @@ DecodeResponse PcdEngine::decode(const DecodeRequest & request) {
     if (runtime_.sequence_max_position(prefix_seq) != completed - 1) {
         throw NativeError("prefix sequence position mismatch after dynamic context");
     }
+    metrics.phases.dynamic_context_ms = ms_since(phase);
 
     // Phase: broadcast the completed prefix to one sequence per field.
+    phase = Clock::now();
     const auto field_count = compiled->fields.size();
     for (std::size_t f = 0; f < field_count; ++f) {
         runtime_.copy_sequence(prefix_seq, static_cast<llama_seq_id>(f + 1), -1, -1);
