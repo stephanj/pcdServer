@@ -49,7 +49,8 @@ struct PhaseTimings {
 struct DecodeMetrics {
     double elapsed_ms{};
     int forward_passes{};
-    std::string schema_cache_status;
+    std::string schema_cache_status;  // "miss", "hit" or "fallback"
+    std::size_t checkpoint_bytes{};
     PhaseTimings phases;
 };
 

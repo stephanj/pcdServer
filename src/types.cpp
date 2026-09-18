@@ -150,6 +150,7 @@ json to_json_response(const DecodeResponse & response) {
             {"elapsedMs", m.elapsed_ms},
             {"forwardPasses", m.forward_passes},
             {"schemaCacheStatus", m.schema_cache_status},
+            {"checkpointBytes", m.checkpoint_bytes},
             {"phasesMs", {
                 {"tokenize", m.phases.tokenize_ms},
                 {"restoreOrPrefill", m.phases.restore_or_prefill_ms},
