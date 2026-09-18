@@ -81,3 +81,8 @@ add_executable(pcd_tests
 )
 target_link_libraries(pcd_tests PRIVATE pcd_http Catch2::Catch2WithMain)
 catch_discover_tests(pcd_tests)
+
+add_test(NAME pcd_server_help COMMAND pcd_server --help)
+set_tests_properties(pcd_server_help PROPERTIES
+    PASS_REGULAR_EXPRESSION "--port PORT           default 8090"
+)
