@@ -20,7 +20,10 @@ FetchContent_Declare(json GIT_REPOSITORY https://github.com/nlohmann/json.git GI
 FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.15.2 GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(llama_cpp httplib json Catch2)
 
-add_library(pcd_core STATIC src/types.cpp)
+add_library(pcd_core STATIC
+    src/types.cpp
+    src/engine/schema.cpp
+)
 target_include_directories(pcd_core PUBLIC include)
 target_link_libraries(pcd_core PUBLIC llama nlohmann_json::nlohmann_json)
 
@@ -30,6 +33,7 @@ include(Catch)
 add_executable(pcd_tests
     tests/version_test.cpp
     tests/types_test.cpp
+    tests/schema_test.cpp
 )
 target_link_libraries(pcd_tests PRIVATE pcd_core Catch2::Catch2WithMain)
 catch_discover_tests(pcd_tests)
