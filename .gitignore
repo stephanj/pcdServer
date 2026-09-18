@@ -1,4 +1,4 @@
-/build/
+/build*/
 /models/*.gguf
 !/models/.gitkeep
 .DS_Store
