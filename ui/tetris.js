@@ -36,13 +36,44 @@
     return SHAPES[type][rot % SHAPES[type].length].map(([r, c]) => [row + r, col + c]);
   }
   function fits(b, cs) { return cs.every(([r, c]) => r >= 0 && r < H && c >= 0 && c < W && !b[r][c]); }
+  const SPAWN_COL = 3;
   function dropRow(b, type, rot, col) {
     // Hard-drop from the spawn row: the piece must fit at the top, then falls until the next row is
-    // blocked. Never scans past an obstacle (that would let a piece tunnel under an overhang).
+    // blocked. Used only to tell a plain drop from a tuck when labelling.
     if (!fits(b, cells(type, rot, 0, col))) return -1;
     let row = 0;
     while (row + 1 < H && fits(b, cells(type, rot, row + 1, col))) row++;
     return row;
+  }
+  /**
+   * Every resting state reachable from the spawn position by moving left, right, down or rotating,
+   * each with the shortest move path that gets there. Unlike a hard drop this finds spots under
+   * overhangs: the piece can fall next to a ledge and slide underneath it.
+   */
+  function reachableRests(b, type) {
+    const rots = SHAPES[type].length;
+    const start = [0, 0, SPAWN_COL];
+    if (!fits(b, cells(type, ...start))) return [];
+    const key = ([rot, row, col]) => (rot * H + row) * W + col;
+    const parent = new Map([[key(start), null]]);
+    const queue = [start];
+    const rests = [];
+    for (let i = 0; i < queue.length; i++) {
+      const state = queue[i];
+      const [rot, row, col] = state;
+      if (!fits(b, cells(type, rot, row + 1, col))) rests.push(state);
+      for (const next of [[rot, row, col + 1], [rot, row, col - 1], [(rot + 1) % rots, row, col], [rot, row + 1, col]]) {
+        const k = key(next);
+        if (parent.has(k) || !fits(b, cells(type, ...next))) continue;
+        parent.set(k, state);
+        queue.push(next);
+      }
+    }
+    return rests.map((rest) => {
+      const path = [];
+      for (let s = rest; s; s = parent.get(key(s))) path.unshift(s);
+      return { rot: rest[0], row: rest[1], col: rest[2], path };
+    });
   }
   function place(b, type, rot, row, col) {
     const nb = b.map((r) => r.slice());
@@ -59,27 +90,24 @@
   /** Every (rotation, column) the piece can be hard-dropped into, with the consequences of doing so. */
   function legalPlacements(b, type) {
     const out = [];
-    const rots = SHAPES[type].length;
     const before = holes(b);
-    for (let rot = 0; rot < rots; rot++) {
-      const width = Math.max(...SHAPES[type][rot].map(([, c]) => c)) + 1;
-      for (let col = 0; col <= W - width; col++) {
-        const row = dropRow(b, type, rot, col);
-        if (row < 0) continue;
-        const res = place(b, type, rot, row, col);
-        const hs = heights(res.board);
-        const newHoles = holes(res.board) - before;
-        const maxH = Math.max(...hs);
-        // A plain heuristic (Dellacherie-flavoured) used only as a reference in the UI.
-        const heur = res.cleared * 10 - Math.max(0, newHoles) * 8 - maxH * 1.5 - bumpiness(hs) * 0.5;
-        // The outcome leads the label so the decoder's first decision token is about the outcome, not the position.
-        const outcome = res.cleared > 0
-          ? `clears ${res.cleared} line${res.cleared === 1 ? "" : "s"}`
-          : `no line, ${Math.max(0, newHoles)} new hole${newHoles === 1 ? "" : "s"}, height ${maxH}`;
-        out.push({ rot, col, row, label: `${outcome} - column ${col}, rotation ${rot}`, cleared: res.cleared, newHoles, maxH, bump: bumpiness(hs), heur });
-      }
+    for (const { rot, row, col, path } of reachableRests(b, type)) {
+      const res = place(b, type, rot, row, col);
+      const hs = heights(res.board);
+      const newHoles = holes(res.board) - before;
+      const maxH = Math.max(...hs);
+      // A plain heuristic (Dellacherie-flavoured) used only as a reference in the UI.
+      const heur = res.cleared * 10 - Math.max(0, newHoles) * 8 - maxH * 1.5 - bumpiness(hs) * 0.5;
+      // The outcome leads the label so the decoder's first decision token is about the outcome, not the position.
+      const outcome = res.cleared > 0
+        ? `clears ${res.cleared} line${res.cleared === 1 ? "" : "s"}`
+        : `no line, ${Math.max(0, newHoles)} new hole${newHoles === 1 ? "" : "s"}, height ${maxH}`;
+      // A spot below the plain drop for this column/rotation was reached by tucking under a ledge.
+      const tucked = row !== dropRow(b, type, rot, col);
+      const where = `column ${col}, rotation ${rot}` + (tucked ? `, tucked under at row ${row}` : "");
+      out.push({ rot, col, row, path, tucked, label: `${outcome} - ${where}`, cleared: res.cleared, newHoles, maxH, bump: bumpiness(hs), heur });
     }
-    return out;
+    return out.sort((a, b) => a.col - b.col || a.rot - b.rot || a.row - b.row);
   }
 
   // ---------------------------------------------------------------- the decision
@@ -182,11 +210,11 @@
     lastDecision = { ...d, placements, all };
     renderProbs();
 
-    // Animate: rotate, slide to the column at the top, then fall row by row.
+    // Animate the move path found by the search: fall, slide and rotate into the chosen spot.
     const p = d.chosen;
     const speed = parseInt($("tetris-speed").value, 10);
-    for (let r = 0; r <= p.row; r++) {
-      render({ type: piece, rot: p.rot, row: r, col: p.col });
+    for (const [rot, row, col] of p.path) {
+      render({ type: piece, rot, row, col });
       await sleep(speed);
       if (!running) return;
     }
@@ -196,7 +224,7 @@
     tps.count++;
     piece = next; next = drawBag();
     render(); renderStats();
-    if (!fits(board, cells(piece, 0, 0, 3))) { endGame(); return; }
+    if (!fits(board, cells(piece, 0, 0, SPAWN_COL))) { endGame(); return; }
     timer = setTimeout(turn, 0);
   }
 
@@ -272,7 +300,7 @@
   $("tetris-start").addEventListener("click", () => (running ? pause() : start()));
   $("tetris-reset").addEventListener("click", () => { pause(); reset(); });
   $("tetris-temp").addEventListener("input", () => { $("tetris-temp-val").textContent = parseFloat($("tetris-temp").value).toFixed(1); });
-  window.pcdTetris = { pause, start };
+  window.pcdTetris = { pause, start, legalPlacements };
   reset();
   const params = new URLSearchParams(location.search);
   if (params.get("view") === "tetris" && params.has("autorun")) start();
