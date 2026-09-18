@@ -1,4 +1,4 @@
-# PCD Server
+# Parallel Constrained Decoding (PCD) Server
 
 **Turn text into guaranteed bounded JSON with a local GGUF model.**
 
