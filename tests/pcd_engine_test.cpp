@@ -135,6 +135,10 @@ TEST_CASE("Qwen alternating schemas keep separate checkpoints", "[native]") {
         REQUIRE(hit_b.fields[i].probability == Catch::Approx(cold_b.fields[i].probability).margin(1e-5));
     }
     REQUIRE(engine.cache().size() == 2);
+    const auto stats = engine.cache_stats();
+    REQUIRE(stats.entries == engine.cache().size());
+    REQUIRE(stats.bytes == engine.cache().total_bytes());
+    REQUIRE(stats.bytes == cold_a.metrics.checkpoint_bytes + cold_b.metrics.checkpoint_bytes);
 }
 
 TEST_CASE("Qwen shared-prefix choices resolve through the collision tree", "[native]") {

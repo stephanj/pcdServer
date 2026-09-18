@@ -16,7 +16,7 @@ Scope of this version: **booleans and bounded string enums only**. No free strin
 **Linux**
 
 - GCC ≥ 12 or Clang ≥ 15, CMake ≥ 3.25, `git`, `curl`, `jq`
-- Runs on CPU by default (llama.cpp picks the platform backend; pass the usual `GGML_CUDA=ON` etc. through CMake if you want a GPU backend). Expect cold decodes in the hundreds of milliseconds on CPU for the 0.8B model.
+- Runs on CPU by default (llama.cpp picks the platform backend; pass the usual `GGML_CUDA=ON` etc. through CMake if you want a GPU backend). CPU latency has not been measured for this project; expect it to be noticeably slower than the Metal numbers quoted below.
 
 ## Getting the default model
 
@@ -145,7 +145,7 @@ Limits: 1–63 fields, 2–256 choices per field, 64 KiB context, 4096 total can
 
 ### Why full checkpoints instead of partial rollback
 
-Qwen3.5 is a hybrid model with recurrent (Gated DeltaNet) layers alongside attention. Recurrent state cannot be partially rewound: `llama_memory_seq_rm` on a sub-range of positions returns `false` for such memory, and continuing after a failed trim would decode against a stale state. The server therefore never trims. It clears memory and restores a **complete** host-side checkpoint (`llama_state_seq_*_ext` with `LLAMA_STATE_SEQ_FLAGS_NONE`, covering the KV cache and the recurrent state) taken right after the schema prefix. Save and restore byte counts are verified exactly, the restored position is checked, and any mismatch falls back to a cold prefill. Two consecutive restore failures disable caching for that schema until the model is reloaded. Checkpoints are immutable after publication and the cache is bounded by entries and bytes (LRU). One 3-field schema checkpoint on Qwen3.5-0.8B is ≈ 22 MB and restores in ≈ 6 ms versus ≈ 36 ms for a cold prefill.
+Qwen3.5 is a hybrid model with recurrent (Gated DeltaNet) layers alongside attention. Recurrent state cannot be partially rewound: on Qwen3.5-0.8B, `llama_memory_seq_rm` on a sub-range of positions returns `false` and leaves the sequence untouched (covered by a native test), and continuing after a failed trim would decode against a stale state. The server therefore never trims. It clears memory and restores a **complete** host-side checkpoint (`llama_state_seq_*_ext` with `LLAMA_STATE_SEQ_FLAGS_NONE`, covering the KV cache and the recurrent state) taken right after the schema prefix. Save and restore byte counts are verified exactly, the restored position is checked, and any mismatch falls back to a cold prefill. Two consecutive restore failures disable caching for that schema until the model is reloaded. Checkpoints are immutable after publication and the cache is bounded by entries and bytes (LRU). One 3-field schema checkpoint on Qwen3.5-0.8B is ≈ 22 MB and restores in ≈ 6 ms versus ≈ 36 ms for a cold prefill.
 
 ## Native integration tests
 

@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <unistd.h>
 
 using nlohmann::json;
 namespace fs = std::filesystem;
@@ -19,9 +20,15 @@ struct Fixture {
     pcd::HttpServer server;
     httplib::Client client;
 
+    static fs::path make_dir() {
+        std::string tmpl = (fs::temp_directory_path() / "pcd-http-XXXXXX").string();
+        REQUIRE(mkdtemp(tmpl.data()) != nullptr);
+        return tmpl;
+    }
+
     Fixture()
-        : dir(fs::temp_directory_path() / fs::path("pcd-http-" + std::to_string(std::rand()))),
-          manager((fs::create_directories(dir), pcd::ModelCatalog(dir)), {}),
+        : dir(make_dir()),
+          manager(pcd::ModelCatalog(dir), {}),
           server(manager, {.bind = "127.0.0.1", .port = 0}),
           client("127.0.0.1", (server.start(), server.port())) {}
     ~Fixture() { fs::remove_all(dir); }

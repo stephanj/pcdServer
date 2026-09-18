@@ -34,8 +34,15 @@ public:
 
     // Cache key for a schema on this model instance.
     std::string schema_key(const std::vector<FieldSpec> & fields) const;
-    // Direct cache access for tests and diagnostics. Only safe when no decode
-    // is running.
+
+    struct CacheStats {
+        std::size_t entries{};
+        std::size_t bytes{};
+    };
+    // Thread-safe snapshot for status endpoints; waits for any running decode.
+    CacheStats cache_stats() const;
+    // Direct cache access for tests and benchmarks. Only safe when no decode
+    // is running on another thread.
     SchemaCache & cache() { return cache_; }
 
 private:
@@ -46,8 +53,9 @@ private:
     EngineOptions options_;
     LlamaRuntime runtime_;
     SchemaCache cache_;
-    std::mutex inference_mutex_;
+    mutable std::mutex inference_mutex_;
     std::string model_id_;
+    std::string model_fingerprint_;
     std::string description_;
     std::string backend_;
     std::string architecture_;

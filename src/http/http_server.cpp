@@ -55,14 +55,15 @@ json engine_summary(const std::shared_ptr<PcdEngine> & engine) {
     if (!engine) {
         return nullptr;
     }
+    const auto stats = engine->cache_stats();
     return {
         {"id", engine->model_id()},
         {"description", engine->model_description()},
         {"architecture", engine->architecture()},
         {"backend", engine->backend()},
         {"contextSize", engine->options().runtime.context_size},
-        {"cacheEntries", engine->cache().size()},
-        {"cacheBytes", engine->cache().total_bytes()},
+        {"cacheEntries", stats.entries},
+        {"cacheBytes", stats.bytes},
     };
 }
 

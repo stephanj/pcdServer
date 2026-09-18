@@ -40,6 +40,7 @@ PcdEngine::PcdEngine(std::filesystem::path model_path, EngineOptions options)
       runtime_(with_path(options_.runtime, model_path)),
       cache_(options_.cache),
       model_id_(model_path.filename().string()),
+      model_fingerprint_(runtime_.model_fingerprint()),
       description_(runtime_.model_description()),
       backend_(runtime_.backend_name()),
       architecture_(runtime_.metadata("general.architecture")) {
@@ -54,7 +55,12 @@ PcdEngine::PcdEngine(std::filesystem::path model_path, EngineOptions options)
 }
 
 std::string PcdEngine::schema_key(const std::vector<FieldSpec> & fields) const {
-    return runtime_.model_fingerprint() + "|" + template_fingerprint_ + "|" + canonical_schema(fields);
+    return model_fingerprint_ + "|" + template_fingerprint_ + "|" + canonical_schema(fields);
+}
+
+PcdEngine::CacheStats PcdEngine::cache_stats() const {
+    std::lock_guard<std::mutex> lock(inference_mutex_);
+    return {cache_.size(), cache_.total_bytes()};
 }
 
 std::shared_ptr<const CompiledSchema> PcdEngine::compile(const std::vector<FieldSpec> & fields) const {

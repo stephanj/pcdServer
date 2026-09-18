@@ -74,3 +74,20 @@ TEST_CASE("batch decode returns logits only where requested", "[native]") {
     REQUIRE(runtime.remove_sequence(1, -1, -1));
     REQUIRE(runtime.sequence_max_position(1) == -1);
 }
+
+TEST_CASE("Qwen3.5 refuses partial sequence removal, so prefix reuse needs full checkpoints", "[native]") {
+    const char * path = std::getenv("PCD_TEST_GGUF");
+    if (!path) SKIP("PCD_TEST_GGUF is not set");
+    pcd::LlamaRuntime runtime({.model_path = path, .context_size = 2048, .max_sequences = 8, .batch_size = 2048});
+    auto tokens = runtime.tokenize("one two three four five six seven", true, true);
+    runtime.decode_single_sequence(tokens, 0, 0, false);
+    runtime.synchronize();
+    const auto last = static_cast<int>(tokens.size()) - 1;
+    if (runtime.metadata("general.architecture").rfind("qwen35", 0) != 0) {
+        SKIP("not a Qwen3.5 hybrid model");
+    }
+    REQUIRE_FALSE(runtime.remove_sequence(0, 2, -1));
+    REQUIRE(runtime.sequence_max_position(0) == last);
+    REQUIRE(runtime.remove_sequence(0, -1, -1));
+    REQUIRE(runtime.sequence_max_position(0) == -1);
+}

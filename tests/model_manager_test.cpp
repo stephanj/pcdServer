@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -13,8 +14,9 @@ namespace {
 struct TempDir {
     fs::path path;
     TempDir() {
-        path = fs::temp_directory_path() / fs::path("pcd-catalog-" + std::to_string(std::rand()));
-        fs::create_directories(path);
+        std::string tmpl = (fs::temp_directory_path() / "pcd-catalog-XXXXXX").string();
+        REQUIRE(mkdtemp(tmpl.data()) != nullptr);
+        path = tmpl;
     }
     ~TempDir() { fs::remove_all(path); }
     void file(const std::string & name, std::size_t bytes) const {
