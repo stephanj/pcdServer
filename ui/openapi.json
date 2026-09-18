@@ -1,0 +1,240 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PCD server",
+    "version": "v1",
+    "description": "Parallel Constrained Decoding over a local GGUF model. Every field of a bounded schema (booleans and string enums) is decided in a couple of batched forward passes; only the allowed values are scored, so the returned JSON is always valid.\n\nErrors use one envelope: `{\"code\": \"...\", \"message\": \"...\"}`. Messages never contain filesystem paths."
+  },
+  "servers": [{ "url": "/" }],
+  "tags": [
+    { "name": "status", "description": "Readiness and model information" },
+    { "name": "models", "description": "Discover and switch GGUF models" },
+    { "name": "decode", "description": "Parallel constrained decoding" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["status"],
+        "summary": "Server readiness and active model",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Always 200; `ready` is false while no model is loaded.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" },
+              "example": { "status": "ok", "apiVersion": "v1", "ready": true, "model": "Qwen3.5-0.8B-Q8_0.gguf", "description": "qwen35 0.8B Q8_0", "backend": "MTL0" } } }
+          }
+        }
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "tags": ["models"],
+        "summary": "List selectable models",
+        "description": "Rescans the models directory on every call, so a freshly copied `.gguf` becomes selectable without a restart.",
+        "operationId": "listModels",
+        "responses": {
+          "200": {
+            "description": "Discovered models and the active one.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ModelList" } } }
+          }
+        }
+      }
+    },
+    "/v1/models/select": {
+      "post": {
+        "tags": ["models"],
+        "summary": "Switch the active model",
+        "description": "Loads and validates the replacement completely before swapping it in. If loading fails the current model stays active. Switching invalidates every cached schema checkpoint of the previous model.",
+        "operationId": "selectModel",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SelectModelRequest" }, "example": { "id": "Qwen3.5-0.8B-Q8_0.gguf" } } }
+        },
+        "responses": {
+          "200": { "description": "The model is now active.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SelectModelResponse" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "description": "No model with that identifier in the models directory.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "code": "unknown_model", "message": "unknown model: nope.gguf" } } } },
+          "500": { "$ref": "#/components/responses/NativeError" }
+        }
+      }
+    },
+    "/v1/pcd/decode": {
+      "post": {
+        "tags": ["decode"],
+        "summary": "Fill every field of a bounded schema",
+        "description": "Fields are an ordered array. Choices within one field must all be strings (2–256 distinct, non-empty) or exactly `[false, true]`. Limits: 1–63 fields, 64 KiB context, 4096 total candidate tokens, 1 MiB body; the whole request must fit the model's context window.",
+        "operationId": "decode",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DecodeRequest" },
+            "example": {
+              "context": "Customer requested an unusual wire transfer of 48,000 EUR to a newly added beneficiary in another country.",
+              "fields": [
+                { "name": "priority", "description": "Required handling priority", "choices": ["LOW", "MEDIUM", "HIGH"] },
+                { "name": "fraudulent", "description": "Whether fraud is suspected", "choices": [false, true] }
+              ]
+            } } }
+        },
+        "responses": {
+          "200": {
+            "description": "One value and one probability map per field, in request order.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DecodeResponse" },
+              "example": {
+                "model": "Qwen3.5-0.8B-Q8_0.gguf",
+                "values": { "priority": "HIGH", "fraudulent": true },
+                "fields": [
+                  { "name": "priority", "value": "HIGH", "probability": 0.76, "probabilities": { "LOW": 0.08, "MEDIUM": 0.16, "HIGH": 0.76 }, "levels": 1 },
+                  { "name": "fraudulent", "value": true, "probability": 0.98, "probabilities": { "false": 0.02, "true": 0.98 }, "levels": 1 }
+                ],
+                "metrics": { "elapsedMs": 39.8, "forwardPasses": 2, "schemaCacheStatus": "hit", "checkpointBytes": 22332068,
+                  "phasesMs": { "tokenize": 0.2, "restoreOrPrefill": 5.8, "dynamicContext": 13.5, "broadcast": 0.04, "suffix": 20.8, "tree": 0.0 } }
+              } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "422": { "description": "The schema cannot be compiled safely (chat template or candidate tokenization).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "code": "schema_error", "message": "field f has choices that are indistinguishable after tokenization" } } } },
+          "500": { "$ref": "#/components/responses/NativeError" },
+          "503": { "description": "No model is loaded.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "code": "no_model", "message": "no model is loaded" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed JSON (`invalid_json`) or an invalid request (`invalid_request`): duplicate names, mixed choice types, exceeded limits, or a request that does not fit the context window.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "code": "invalid_request", "message": "duplicate field name: priority" } } }
+      },
+      "NativeError": {
+        "description": "llama.cpp reported a failure (`native_error`) or an unexpected exception occurred (`internal_error`).",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string", "enum": ["invalid_json", "invalid_request", "unknown_model", "schema_error", "no_model", "native_error", "internal_error", "not_found", "payload_too_large", "http_error"] },
+          "message": { "type": "string" }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "required": ["status", "apiVersion", "ready"],
+        "properties": {
+          "status": { "type": "string", "const": "ok" },
+          "apiVersion": { "type": "string" },
+          "ready": { "type": "boolean", "description": "True when a model is loaded and decode can succeed." },
+          "model": { "type": ["string", "null"], "description": "Identifier (file name) of the active model." },
+          "description": { "type": ["string", "null"], "description": "llama.cpp model description, e.g. `qwen35 0.8B Q8_0`." },
+          "backend": { "type": ["string", "null"], "description": "Compute device, e.g. `MTL0` or `CPU`." }
+        }
+      },
+      "ModelInfo": {
+        "type": "object",
+        "required": ["id", "bytes", "active"],
+        "properties": {
+          "id": { "type": "string", "description": "File name inside the models directory; the only identifier clients may use." },
+          "bytes": { "type": "integer", "format": "int64" },
+          "active": { "type": "boolean" }
+        }
+      },
+      "ActiveModel": {
+        "type": ["object", "null"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "architecture": { "type": "string" },
+          "backend": { "type": "string" },
+          "contextSize": { "type": "integer" },
+          "cacheEntries": { "type": "integer", "description": "Schema checkpoints currently cached." },
+          "cacheBytes": { "type": "integer", "format": "int64" }
+        }
+      },
+      "ModelList": {
+        "type": "object",
+        "required": ["active", "models"],
+        "properties": {
+          "active": { "type": ["string", "null"] },
+          "activeModel": { "$ref": "#/components/schemas/ActiveModel" },
+          "models": { "type": "array", "items": { "$ref": "#/components/schemas/ModelInfo" } }
+        }
+      },
+      "SelectModelRequest": {
+        "type": "object",
+        "required": ["id"],
+        "properties": { "id": { "type": "string", "description": "An `id` from `GET /v1/models`." } }
+      },
+      "SelectModelResponse": {
+        "type": "object",
+        "required": ["active"],
+        "properties": { "active": { "type": "string" }, "activeModel": { "$ref": "#/components/schemas/ActiveModel" } }
+      },
+      "Choice": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 256 }, { "type": "boolean" }] },
+      "FieldSpec": {
+        "type": "object",
+        "required": ["name", "description", "choices"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Unique within the request; becomes the JSON key." },
+          "description": { "type": "string", "maxLength": 1024, "description": "Shown to the model; may be empty." },
+          "choices": {
+            "type": "array", "minItems": 2, "maxItems": 256,
+            "items": { "$ref": "#/components/schemas/Choice" },
+            "description": "All strings (distinct, non-empty) or exactly `[false, true]`. Order is preserved in the response."
+          }
+        }
+      },
+      "DecodeRequest": {
+        "type": "object",
+        "required": ["context", "fields"],
+        "properties": {
+          "context": { "type": "string", "minLength": 1, "maxLength": 65536, "description": "The text to extract from (the user turn)." },
+          "fields": { "type": "array", "minItems": 1, "maxItems": 63, "items": { "$ref": "#/components/schemas/FieldSpec" } }
+        }
+      },
+      "FieldResult": {
+        "type": "object",
+        "required": ["name", "value", "probability", "probabilities", "levels"],
+        "properties": {
+          "name": { "type": "string" },
+          "value": { "$ref": "#/components/schemas/Choice" },
+          "probability": { "type": "number", "minimum": 0, "maximum": 1, "description": "Probability of the winning value." },
+          "probabilities": { "type": "object", "additionalProperties": { "type": "number" }, "description": "Softmax over the allowed values only; keys are the choice labels (`true`/`false` for booleans) and the values sum to 1." },
+          "levels": { "type": "integer", "minimum": 1, "description": "Collision-tree levels needed; 1 when every choice starts with a distinct token." }
+        }
+      },
+      "PhaseTimings": {
+        "type": "object",
+        "properties": {
+          "tokenize": { "type": "number" },
+          "restoreOrPrefill": { "type": "number", "description": "Checkpoint restore on a hit, cold prefill on a miss or fallback." },
+          "dynamicContext": { "type": "number" },
+          "broadcast": { "type": "number" },
+          "suffix": { "type": "number" },
+          "tree": { "type": "number" }
+        }
+      },
+      "DecodeMetrics": {
+        "type": "object",
+        "required": ["elapsedMs", "forwardPasses", "schemaCacheStatus"],
+        "properties": {
+          "elapsedMs": { "type": "number" },
+          "forwardPasses": { "type": "integer", "description": "Number of llama_decode calls." },
+          "schemaCacheStatus": { "type": "string", "enum": ["miss", "hit", "fallback"], "description": "`miss`: schema prefix computed and checkpointed; `hit`: checkpoint restored; `fallback`: a cached checkpoint failed to restore, the prefix was recomputed and the checkpoint dropped." },
+          "checkpointBytes": { "type": "integer", "format": "int64" },
+          "phasesMs": { "$ref": "#/components/schemas/PhaseTimings" }
+        }
+      },
+      "DecodeResponse": {
+        "type": "object",
+        "required": ["model", "values", "fields", "metrics"],
+        "properties": {
+          "model": { "type": "string" },
+          "values": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/Choice" }, "description": "The assembled result, one entry per field." },
+          "fields": { "type": "array", "items": { "$ref": "#/components/schemas/FieldResult" } },
+          "metrics": { "$ref": "#/components/schemas/DecodeMetrics" }
+        }
+      }
+    }
+  }
+}

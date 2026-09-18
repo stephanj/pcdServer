@@ -70,6 +70,20 @@ json engine_summary(const std::shared_ptr<PcdEngine> & engine) {
 
 }  // namespace
 
+const std::vector<StaticAsset> & ui_assets() {
+    static const std::vector<StaticAsset> assets = {
+        {"/", "text/html; charset=utf-8", ui_index_html},
+        {"/index.html", "text/html; charset=utf-8", ui_index_html},
+        {"/style.css", "text/css; charset=utf-8", ui_style_css},
+        {"/app.js", "text/javascript; charset=utf-8", ui_app_js},
+        {"/tetris.js", "text/javascript; charset=utf-8", ui_tetris_js},
+        {"/presets.json", "application/json; charset=utf-8", ui_presets_json},
+        {"/openapi.json", "application/json; charset=utf-8", ui_openapi_json},
+        {"/docs", "text/html; charset=utf-8", ui_docs_html},
+    };
+    return assets;
+}
+
 HttpServer::HttpServer(ModelManager & manager, HttpServerOptions options)
     : manager_(manager), options_(std::move(options)), server_(std::make_unique<httplib::Server>()) {
     server_->set_payload_max_length(options_.max_body_bytes);
@@ -83,11 +97,13 @@ HttpServer::~HttpServer() {
 void HttpServer::register_routes() {
     auto & server = *server_;
 
-    const auto playground = [](const httplib::Request &, httplib::Response & res) {
-        res.set_content(std::string(ui_index_html()), "text/html; charset=utf-8");
-    };
-    server.Get("/", playground);
-    server.Get("/index.html", playground);
+    for (const auto & asset : ui_assets()) {
+        server.Get(asset.path, [asset](const httplib::Request &, httplib::Response & res) {
+            // Assets change with every rebuild; make browsers revalidate on reload.
+            res.set_header("Cache-Control", "no-cache");
+            res.set_content(std::string(asset.content()), asset.mime);
+        });
+    }
 
     server.Get("/health", [this](const httplib::Request &, httplib::Response & res) {
         guarded(res, [&] {

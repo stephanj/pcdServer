@@ -33,16 +33,28 @@ add_library(pcd_core STATIC
 target_include_directories(pcd_core PUBLIC include)
 target_link_libraries(pcd_core PUBLIC llama nlohmann_json::nlohmann_json)
 
-set(PCD_UI_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/ui/index.html)
-set(PCD_UI_GENERATED ${CMAKE_CURRENT_BINARY_DIR}/generated/ui_assets.cpp)
-add_custom_command(
-    OUTPUT ${PCD_UI_GENERATED}
-    COMMAND ${CMAKE_COMMAND} -DINPUT=${PCD_UI_SOURCE} -DOUTPUT=${PCD_UI_GENERATED} -DSYMBOL=ui_index_html
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_resource.cmake
-    DEPENDS ${PCD_UI_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_resource.cmake
-    COMMENT "Embedding ui/index.html"
-    VERBATIM
-)
+# Embeds every file under ui/ into the server binary; see cmake/embed_resource.cmake.
+function(pcd_embed_asset out_var file symbol)
+    set(generated ${CMAKE_CURRENT_BINARY_DIR}/generated/${symbol}.cpp)
+    add_custom_command(
+        OUTPUT ${generated}
+        COMMAND ${CMAKE_COMMAND} -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/ui/${file} -DOUTPUT=${generated} -DSYMBOL=${symbol}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_resource.cmake
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ui/${file} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_resource.cmake
+        COMMENT "Embedding ui/${file}"
+        VERBATIM
+    )
+    list(APPEND ${out_var} ${generated})
+    set(${out_var} ${${out_var}} PARENT_SCOPE)
+endfunction()
+
+pcd_embed_asset(PCD_UI_GENERATED index.html ui_index_html)
+pcd_embed_asset(PCD_UI_GENERATED style.css ui_style_css)
+pcd_embed_asset(PCD_UI_GENERATED app.js ui_app_js)
+pcd_embed_asset(PCD_UI_GENERATED tetris.js ui_tetris_js)
+pcd_embed_asset(PCD_UI_GENERATED presets.json ui_presets_json)
+pcd_embed_asset(PCD_UI_GENERATED openapi.json ui_openapi_json)
+pcd_embed_asset(PCD_UI_GENERATED docs.html ui_docs_html)
 
 add_library(pcd_http STATIC src/http/http_server.cpp ${PCD_UI_GENERATED})
 target_link_libraries(pcd_http PUBLIC pcd_core httplib::httplib)

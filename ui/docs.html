@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCD server API</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+<style>
+  body { margin: 0; }
+  .topbar { display: none; }
+  .fallback { font-family: system-ui, sans-serif; max-width: 60ch; margin: 40px auto; color: #1b2430; }
+  .fallback code { background: #eef1ef; padding: 2px 4px; }
+</style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<noscript><p class="fallback">Swagger UI needs JavaScript. The raw specification is at <code>/openapi.json</code>.</p></noscript>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+<script>
+  if (window.SwaggerUIBundle) {
+    window.ui = SwaggerUIBundle({ url: "/openapi.json", dom_id: "#swagger-ui", deepLinking: true, tryItOutEnabled: true });
+  } else {
+    document.getElementById("swagger-ui").innerHTML =
+      '<p class="fallback">Swagger UI could not be loaded from the CDN (this page needs internet access). ' +
+      'The raw OpenAPI document is available at <a href="/openapi.json">/openapi.json</a>.</p>';
+  }
+</script>
+</body>
+</html>

@@ -50,9 +50,14 @@ Dependencies are fetched by CMake at pinned tags: llama.cpp `v0.4.1`, cpp-httpli
 
 Startup model precedence: `--model`, then `PCD_GGUF`, then `models/Qwen3.5-0.8B-Q8_0.gguf`. If none exists the server starts without an active model and decode returns `503` until one is selected. `SIGINT`/`SIGTERM` stop the listener and release the model.
 
-## Playground UI
+## Playground UI and API docs
 
-Open `http://127.0.0.1:8080/` in a browser. The page (embedded in the binary from `ui/index.html`) shows the active model, lets you switch models, edit the input text and the field list, and decode — with per-choice probabilities, the assembled values, and a breakdown of where the time went. It talks to the same REST API described below, and the "Copy as curl" link gives the equivalent command line. Any path other than `/`, `/index.html` and the API routes returns a JSON 404.
+Open `http://127.0.0.1:8080/` in a browser. The page is embedded in the binary from `ui/` and has two views:
+
+- **Playground** — pick a scenario (the triage fixture plus six imported from the parallelConstraintDecoding demo: spam & phishing triage, Devoxx CFP routing with sample talks, three 28-field enterprise schemas, and a 255-choice customs router), edit the input and the field list, decode, and inspect per-choice probabilities, the assembled values, a breakdown of where the time went, and the equivalent `curl`. Switch models from the header.
+- **Tetris** — every falling piece is one `POST /v1/pcd/decode`: the board is the input, the legal placements (labelled by outcome) are the allowed values of a single `placement` field. Controls for animation speed, sampling temperature and which candidates the model is offered.
+
+`/docs` renders the OpenAPI 3.1 description of the four endpoints with Swagger UI (loaded from jsDelivr, so that page needs internet access); the raw document is always available at `/openapi.json`. Scenarios are served at `/presets.json` and regenerated with `scripts/import-presets.py <path-to-presets-dir>`. Any other path returns a JSON 404.
 
 ## REST API (`v1`)
 
