@@ -27,6 +27,9 @@ target_link_libraries(pcd_core PUBLIC llama nlohmann_json::nlohmann_json)
 enable_testing()
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
-add_executable(pcd_tests tests/version_test.cpp)
+add_executable(pcd_tests
+    tests/version_test.cpp
+    tests/types_test.cpp
+)
 target_link_libraries(pcd_tests PRIVATE pcd_core Catch2::Catch2WithMain)
 catch_discover_tests(pcd_tests)
