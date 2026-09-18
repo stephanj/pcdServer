@@ -1,5 +1,6 @@
 #include "pcd/http_server.hpp"
 
+#include "pcd/ui_assets.hpp"
 #include "pcd/version.hpp"
 
 #include <httplib.h>
@@ -81,6 +82,12 @@ HttpServer::~HttpServer() {
 
 void HttpServer::register_routes() {
     auto & server = *server_;
+
+    const auto playground = [](const httplib::Request &, httplib::Response & res) {
+        res.set_content(std::string(ui_index_html()), "text/html; charset=utf-8");
+    };
+    server.Get("/", playground);
+    server.Get("/index.html", playground);
 
     server.Get("/health", [this](const httplib::Request &, httplib::Response & res) {
         guarded(res, [&] {

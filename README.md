@@ -50,6 +50,10 @@ Dependencies are fetched by CMake at pinned tags: llama.cpp `v0.4.1`, cpp-httpli
 
 Startup model precedence: `--model`, then `PCD_GGUF`, then `models/Qwen3.5-0.8B-Q8_0.gguf`. If none exists the server starts without an active model and decode returns `503` until one is selected. `SIGINT`/`SIGTERM` stop the listener and release the model.
 
+## Playground UI
+
+Open `http://127.0.0.1:8080/` in a browser. The page (embedded in the binary from `ui/index.html`) shows the active model, lets you switch models, edit the input text and the field list, and decode — with per-choice probabilities, the assembled values, and a breakdown of where the time went. It talks to the same REST API described below, and the "Copy as curl" link gives the equivalent command line. Any path other than `/`, `/index.html` and the API routes returns a JSON 404.
+
 ## REST API (`v1`)
 
 All responses are `application/json`. Errors use a stable envelope `{"code": "...", "message": "..."}`.

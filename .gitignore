@@ -3,3 +3,4 @@
 !/models/.gitkeep
 .DS_Store
 compile_commands.json
+/.playwright-mcp/

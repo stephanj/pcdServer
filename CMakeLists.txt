@@ -33,7 +33,18 @@ add_library(pcd_core STATIC
 target_include_directories(pcd_core PUBLIC include)
 target_link_libraries(pcd_core PUBLIC llama nlohmann_json::nlohmann_json)
 
-add_library(pcd_http STATIC src/http/http_server.cpp)
+set(PCD_UI_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/ui/index.html)
+set(PCD_UI_GENERATED ${CMAKE_CURRENT_BINARY_DIR}/generated/ui_assets.cpp)
+add_custom_command(
+    OUTPUT ${PCD_UI_GENERATED}
+    COMMAND ${CMAKE_COMMAND} -DINPUT=${PCD_UI_SOURCE} -DOUTPUT=${PCD_UI_GENERATED} -DSYMBOL=ui_index_html
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_resource.cmake
+    DEPENDS ${PCD_UI_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_resource.cmake
+    COMMENT "Embedding ui/index.html"
+    VERBATIM
+)
+
+add_library(pcd_http STATIC src/http/http_server.cpp ${PCD_UI_GENERATED})
 target_link_libraries(pcd_http PUBLIC pcd_core httplib::httplib)
 
 add_executable(pcd_server src/main.cpp)

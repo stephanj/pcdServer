@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include "pcd/http_server.hpp"
+#include "pcd/ui_assets.hpp"
 #include "pcd/version.hpp"
 
 #include <httplib.h>
@@ -131,4 +132,23 @@ TEST_CASE("valid decode returns ordered fields and metrics", "[native]") {
 
     auto models = json::parse(fx.client.Get("/v1/models")->body);
     REQUIRE(models["active"] == fs::path(path).filename().string());
+}
+
+TEST_CASE("root serves the embedded playground page") {
+    Fixture fx;
+    auto res = fx.client.Get("/");
+    REQUIRE(res);
+    REQUIRE(res->status == 200);
+    REQUIRE(res->get_header_value("Content-Type").find("text/html") == 0);
+    REQUIRE(res->body.find("<!doctype html>") != std::string::npos);
+    REQUIRE(res->body.find("/v1/pcd/decode") != std::string::npos);
+    REQUIRE(res->body.size() == pcd::ui_index_html().size());
+}
+
+TEST_CASE("index.html is an alias for the playground") {
+    Fixture fx;
+    auto res = fx.client.Get("/index.html");
+    REQUIRE(res);
+    REQUIRE(res->status == 200);
+    REQUIRE(res->get_header_value("Content-Type").find("text/html") == 0);
 }
