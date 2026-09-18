@@ -70,13 +70,13 @@ When the server is ready:
 
 ```text
 loaded Qwen3.5-0.8B-Q8_0.gguf (qwen35 0.8B Q8_0) on MTL0
-pcd_server v1 listening on http://127.0.0.1:8080
+pcd_server v1 listening on http://127.0.0.1:8090
 ```
 
 ### 3. Check readiness
 
 ```bash
-curl -s http://127.0.0.1:8080/health
+curl -s http://127.0.0.1:8090/health
 ```
 
 ```json
@@ -92,16 +92,16 @@ curl -s http://127.0.0.1:8080/health
 
 Then open:
 
-- **Playground:** <http://127.0.0.1:8080/>
-- **Interactive API docs:** <http://127.0.0.1:8080/docs>
-- **Raw OpenAPI 3.1:** <http://127.0.0.1:8080/openapi.json>
+- **Playground:** <http://127.0.0.1:8090/>
+- **Interactive API docs:** <http://127.0.0.1:8090/docs>
+- **Raw OpenAPI 3.1:** <http://127.0.0.1:8090/openapi.json>
 
 ## Make your first decode
 
 This request classifies a suspicious transfer into two independently bounded fields:
 
 ```bash
-curl -s http://127.0.0.1:8080/v1/pcd/decode \
+curl -s http://127.0.0.1:8090/v1/pcd/decode \
   -H 'Content-Type: application/json' \
   -d '{
     "context": "Customer requested an unusual wire transfer of 48,000 EUR to a newly added beneficiary in another country.",
@@ -242,7 +242,7 @@ Descriptions are shown to the model and may be empty. Field names become keys in
 `GET /v1/models` rescans `--models-dir` on every request, so a newly copied `.gguf` appears without a restart:
 
 ```bash
-curl -s http://127.0.0.1:8080/v1/models
+curl -s http://127.0.0.1:8090/v1/models
 ```
 
 ```json
@@ -270,7 +270,7 @@ curl -s http://127.0.0.1:8080/v1/models
 Select an identifier returned by that endpoint:
 
 ```bash
-curl -s http://127.0.0.1:8080/v1/models/select \
+curl -s http://127.0.0.1:8090/v1/models/select \
   -H 'Content-Type: application/json' \
   -d '{"id":"Qwen3.5-0.8B-Q8_0.gguf"}'
 ```
@@ -314,10 +314,14 @@ The complete rendered request—schema prefix, context, field suffixes, and cand
 
 ## Configure the server
 
+```bash
+./build/pcd_server --help
+```
+
 ```text
-usage: pcd_server [options]
+usage: ./build/pcd_server [options]
   --bind ADDRESS        default 127.0.0.1
-  --port PORT           default 8080
+  --port PORT           default 8090
   --models-dir PATH     default models
   --model PATH          overrides PCD_GGUF and the default model
   --cache-entries N     default 32
@@ -328,7 +332,7 @@ usage: pcd_server [options]
 | Flag | Default | Meaning |
 |---|---|---|
 | `--bind ADDRESS` | `127.0.0.1` | Listener address. Use `0.0.0.0` only when you intend to expose the unauthenticated service. |
-| `--port PORT` | `8080` | Listener port. |
+| `--port PORT` | `8090` | Listener port. |
 | `--models-dir PATH` | `models` | Directory scanned for selectable `.gguf` files. |
 | `--model PATH` | default model | GGUF loaded during startup. |
 | `--cache-entries N` | `32` | Maximum number of cached schema checkpoints. |
