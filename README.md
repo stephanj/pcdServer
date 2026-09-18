@@ -5,6 +5,7 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](CMakeLists.txt)
 [![API](https://img.shields.io/badge/OpenAPI-3.1-6BA539?logo=openapiinitiative)](ui/openapi.json)
 [![llama.cpp](https://img.shields.io/badge/runtime-llama.cpp-111111)](https://github.com/ggml-org/llama.cpp)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 [Quick start](#quick-start) · [Try the API](#make-your-first-decode) · [Web UI](#explore-the-web-ui) · [REST reference](#rest-api) · [How it works](#how-a-decode-works)
 
@@ -446,3 +447,7 @@ CMake fetches exact upstream tags during configuration:
 | [Catch2](https://github.com/catchorg/Catch2) | `v3.15.2` | Test framework |
 
 The UI assets under [`ui/`](ui/) are embedded into the executable at build time by [`cmake/embed_resource.cmake`](cmake/embed_resource.cmake).
+
+## License
+
+PCD Server is released under the [MIT License](LICENSE). It embeds llama.cpp, cpp-httplib, and nlohmann/json, all MIT-licensed; their notices are reproduced in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
