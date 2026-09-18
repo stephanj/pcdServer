@@ -78,10 +78,11 @@
   function place(b, type, rot, row, col) {
     const nb = b.map((r) => r.slice());
     for (const [r, c] of cells(type, rot, row, col)) nb[r][c] = type;
-    let cleared = 0;
-    const kept = nb.filter((r) => { const full = r.every(Boolean); if (full) cleared++; return !full; });
+    const full = [];
+    const kept = nb.filter((r, i) => { if (r.every(Boolean)) { full.push(i); return false; } return true; });
     while (kept.length < H) kept.unshift(Array(W).fill(null));
-    return { board: kept, cleared };
+    // `merged` is the board with the piece landed but the full rows still in place, for the clear animation.
+    return { board: kept, cleared: full.length, full, merged: nb };
   }
   function heights(b) { return Array.from({ length: W }, (_, c) => { for (let r = 0; r < H; r++) if (b[r][c]) return H - r; return 0; }); }
   function holes(b) { let n = 0; for (let c = 0; c < W; c++) { let seen = false; for (let r = 0; r < H; r++) { if (b[r][c]) seen = true; else if (seen) n++; } } return n; }
@@ -219,6 +220,13 @@
       if (!running) return;
     }
     const res = place(board, piece, p.rot, p.row, p.col);
+    if (res.cleared && speed > 0) {
+      // Show the completed rows before they collapse, otherwise the clear happens within a single frame
+      // and the piece appears to land in the wrong place.
+      render(null, { board: res.merged, flash: res.full });
+      await sleep(speed * 4);
+      if (!running) return;
+    }
     board = res.board;
     pieces++; lines += res.cleared; score += [0, 100, 300, 500, 800][res.cleared] || 0;
     tps.count++;
@@ -244,14 +252,17 @@
 
   // ---------------------------------------------------------------- rendering
   const CELL = 24;
-  function render(falling) {
+  /** Draws the board (or `opts.board`), an optional falling piece, and highlights the rows in `opts.flash`. */
+  function render(falling, opts = {}) {
+    const b = opts.board || board;
+    const flash = new Set(opts.flash || []);
     const cv = $("tetris-canvas");
     const ctx = cv.getContext("2d");
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.strokeStyle = "#e6ebe8"; ctx.lineWidth = 1;
     for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
       ctx.strokeRect(c * CELL + 0.5, r * CELL + 0.5, CELL, CELL);
-      if (board[r][c]) { ctx.fillStyle = COLORS[board[r][c]]; ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 1, CELL - 1); }
+      if (b[r][c]) { ctx.fillStyle = flash.has(r) ? "#f5f5f4" : COLORS[b[r][c]]; ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 1, CELL - 1); }
     }
     if (falling) {
       ctx.fillStyle = COLORS[falling.type];
@@ -300,6 +311,7 @@
   $("tetris-start").addEventListener("click", () => (running ? pause() : start()));
   $("tetris-reset").addEventListener("click", () => { pause(); reset(); });
   $("tetris-temp").addEventListener("input", () => { $("tetris-temp-val").textContent = parseFloat($("tetris-temp").value).toFixed(1); });
+  $("tetris-speed").addEventListener("input", () => { $("tetris-speed-val").textContent = $("tetris-speed").value; });
   window.pcdTetris = { pause, start, legalPlacements };
   reset();
   const params = new URLSearchParams(location.search);
