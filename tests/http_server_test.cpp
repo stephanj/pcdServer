@@ -42,7 +42,7 @@ TEST_CASE("health reports version and readiness without a model") {
     REQUIRE(res->status == 200);
     REQUIRE(res->get_header_value("Content-Type").find("application/json") == 0);
     auto body = json::parse(res->body);
-    REQUIRE(body["apiVersion"] == pcd::api_version);
+    REQUIRE(body["apiVersion"].get<std::string>() == pcd::api_version);
     REQUIRE(body["ready"] == false);
     REQUIRE(body["model"].is_null());
 }
