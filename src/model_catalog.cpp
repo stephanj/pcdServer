@@ -18,7 +18,7 @@ bool has_gguf_extension(const fs::path & path) {
 
 bool is_within(const fs::path & root, const fs::path & candidate) {
     auto rel = candidate.lexically_relative(root);
-    return !rel.empty() && rel.native().rfind("..", 0) != 0;
+    return !rel.empty() && *rel.begin() != "..";
 }
 
 }  // namespace
