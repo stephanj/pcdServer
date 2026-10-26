@@ -28,6 +28,11 @@ FetchContent_Declare(json GIT_REPOSITORY https://github.com/nlohmann/json.git GI
 FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.15.2 GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(llama_cpp httplib json Catch2)
 
+if(MSVC)
+    # llama.cpp passes u8"" literals as const char *, which C++20 turns into char8_t.
+    target_compile_options(llama PRIVATE /Zc:char8_t-)
+endif()
+
 add_library(pcd_core STATIC
     src/types.cpp
     src/engine/schema.cpp
@@ -88,7 +93,7 @@ add_executable(pcd_tests
     tests/http_server_test.cpp
 )
 target_link_libraries(pcd_tests PRIVATE pcd_http Catch2::Catch2WithMain)
-catch_discover_tests(pcd_tests)
+catch_discover_tests(pcd_tests ADD_TAGS_AS_LABELS)
 
 add_test(NAME pcd_server_help COMMAND pcd_server --help)
 set_tests_properties(pcd_server_help PROPERTIES

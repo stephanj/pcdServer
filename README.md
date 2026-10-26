@@ -446,7 +446,7 @@ Run the benchmark with:
 
 It performs one warm-up, then measures a cold and cached decode for each run. Output includes median phase timings, checkpoint bytes, cache statuses, and selected values. CTest does not enforce timing thresholds.
 
-[GitHub Actions](.github/workflows/ci.yml) builds and tests every push and pull request on Windows x64 and macOS arm64, including the `[native]` tests and `tests/e2e.sh` against the default model. Pushing a `v*` tag also packages both builds and attaches them to a GitHub Release.
+[GitHub Actions](.github/workflows/ci.yml) builds and tests every push and pull request on Windows x64 and macOS arm64. The Windows job also runs the `[native]` tests and `tests/e2e.sh` against the default model; the macOS runner's virtual GPU is not deterministic enough for them, so run those locally on a Mac. Pushing a `v*` tag also packages both builds and attaches them to a GitHub Release.
 
 ## Current scope
 
