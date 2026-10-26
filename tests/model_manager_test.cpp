@@ -1,11 +1,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include "pcd/model_catalog.hpp"
 #include "pcd/model_manager.hpp"
+#include "temp_dir.hpp"
 
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <unistd.h>
+#include <system_error>
 
 namespace fs = std::filesystem;
 
@@ -13,11 +14,7 @@ namespace {
 
 struct TempDir {
     fs::path path;
-    TempDir() {
-        std::string tmpl = (fs::temp_directory_path() / "pcd-catalog-XXXXXX").string();
-        REQUIRE(mkdtemp(tmpl.data()) != nullptr);
-        path = tmpl;
-    }
+    TempDir() : path(pcd::test::make_temp_dir("pcd-catalog-")) {}
     ~TempDir() { fs::remove_all(path); }
     void file(const std::string & name, std::size_t bytes) const {
         std::ofstream out(path / name, std::ios::binary);
@@ -40,7 +37,10 @@ TEST_CASE("catalog lists only regular gguf files in the directory") {
     fs::create_directories(dir.path / "nested.gguf");
     fs::create_directories(dir.path / "sub");
     dir.file("sub/inner.gguf", 5);
-    fs::create_symlink(dir.path / "alpha.gguf", dir.path / "link.gguf");
+    // Windows only allows symlinks with Developer Mode or admin rights; the
+    // rest of the test still runs when the link cannot be created.
+    std::error_code link_error;
+    fs::create_symlink(dir.path / "alpha.gguf", dir.path / "link.gguf", link_error);
 
     pcd::ModelCatalog catalog(dir.path);
     auto models = catalog.list();

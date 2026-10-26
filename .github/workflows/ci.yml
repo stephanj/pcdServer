@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MODEL: Qwen3.5-0.8B-Q8_0.gguf
+  # Release builds must not depend on the build machine: no host-tuned CPU
+  # code and no optional httplib dependencies picked up from the runner.
+  PORTABLE_ARGS: >-
+    -DGGML_NATIVE=OFF
+    -DHTTPLIB_USE_OPENSSL_IF_AVAILABLE=OFF
+    -DHTTPLIB_USE_ZLIB_IF_AVAILABLE=OFF
+    -DHTTPLIB_USE_BROTLI_IF_AVAILABLE=OFF
+    -DHTTPLIB_USE_ZSTD_IF_AVAILABLE=OFF
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+            # AVX2 baseline: one exe for every x64 PC from about 2015 onward.
+            cmake_args: -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_BMI2=ON
+            server: build/Release/pcd_server.exe
+          - os: macos-14
+            platform: macos-arm64
+            cmake_args: -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
+            server: build/pcd_server
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore model cache
+        uses: actions/cache@v4
+        with:
+          path: models/${{ env.MODEL }}
+          key: model-${{ env.MODEL }}-37ae482d
+          enableCrossOsArchive: true
+
+      - name: Download model (Windows script)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: scripts\download-default-model.cmd
+
+      - name: Download model
+        if: runner.os != 'Windows'
+        run: scripts/download-default-model.sh
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release $PORTABLE_ARGS ${{ matrix.cmake_args }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Check Windows runtime dependencies
+        if: runner.os == 'Windows'
+        run: |
+          ldd "${{ matrix.server }}" | tee deps.txt
+          if grep -iE 'vcruntime|msvcp|vcomp|libssl|libcrypto|zlib' deps.txt; then
+            echo "pcd_server.exe depends on a DLL that is not part of Windows" >&2
+            exit 1
+          fi
+
+      - name: Test
+        env:
+          PCD_TEST_GGUF: ${{ github.workspace }}/models/${{ env.MODEL }}
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: End-to-end
+        env:
+          PCD_SERVER_BIN: ${{ matrix.server }}
+          PYTHON: ${{ runner.os == 'Windows' && 'python' || 'python3' }}
+        run: PCD_TEST_GGUF="$PWD/models/$MODEL" tests/e2e.sh
+
+      - name: Package
+        run: |
+          version="${GITHUB_REF_NAME}"
+          [[ "$GITHUB_REF_TYPE" == tag ]] || version="dev-${GITHUB_SHA::7}"
+          name="pcd_server-${version}-${{ matrix.platform }}"
+          pkg="dist/$name"
+          mkdir -p "$pkg/scripts" "$pkg/models"
+          cp LICENSE THIRD_PARTY_NOTICES.md "$pkg/"
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            cp "${{ matrix.server }}" "$pkg/"
+            cp scripts/download-default-model.cmd "$pkg/scripts/"
+            cp packaging/windows/start-server.cmd packaging/windows/README-windows.txt "$pkg/"
+            (cd "$pkg" && 7z a "../$name.zip" . >/dev/null)
+            (cd dist && sha256sum "$name.zip" > "$name.zip.sha256")
+          else
+            cp "${{ matrix.server }}" README.md "$pkg/"
+            cp scripts/download-default-model.sh "$pkg/scripts/"
+            tar -C dist -czf "dist/$name.tar.gz" "$name"
+            (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")
+          fi
+          rm -rf "$pkg"
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pcd_server-${{ matrix.platform }}
+          path: dist/*
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Attaches to a release with hand-written notes if one already exists.
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+              --title "PCD Server $GITHUB_REF_NAME" --generate-notes
+          fi

@@ -33,6 +33,18 @@ PCD Server is a good fit for routing, triage, moderation, tagging, policy decisi
 
 ## Quick start
 
+### Windows: download and run
+
+No compiler needed. Download `pcd_server-vX.Y.Z-windows-x64.zip` from the [latest release](https://github.com/stephanj/pcdServer/releases/latest) and unzip it, then:
+
+1. Double-click `scripts\download-default-model.cmd` to download and verify the default model (about 1 GB, once).
+2. Double-click `start-server.cmd`.
+3. Open <http://127.0.0.1:8090/>.
+
+The release exe needs 64-bit Windows 10 or 11 and a CPU with AVX2, and runs on the CPU. It is not code-signed: if Windows shows **Windows protected your PC**, click **More info → Run anyway**. Press `Ctrl+C` in the server window to stop it.
+
+To build from source on Windows instead, follow the steps below.
+
 ### 1. Install prerequisites
 
 #### macOS — Apple Silicon
@@ -51,6 +63,16 @@ llama.cpp offloads all model layers to Metal on an Apple Silicon Mac.
 
 Linux uses the backend selected by llama.cpp and runs on CPU by default. To use a supported GPU backend, pass the corresponding llama.cpp CMake option—for example, `-DGGML_CUDA=ON` for CUDA.
 
+#### Windows
+
+- [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/) or its free Build Tools, with the **Desktop development with C++** workload
+- [CMake](https://cmake.org/) 3.25+ and [Git for Windows](https://git-scm.com/download/win)
+- `curl.exe` and `certutil` (included with Windows 10 and 11)
+
+Windows runs on CPU by default. To use a GPU, add `-DGGML_VULKAN=ON` (NVIDIA, AMD, and Intel; requires the [Vulkan SDK](https://vulkan.lunarg.com/)) or `-DGGML_CUDA=ON` (NVIDIA; requires the CUDA Toolkit) to the configure command.
+
+If a native setup is not an option, install [WSL 2](https://learn.microsoft.com/windows/wsl/install) with Ubuntu and follow the Linux steps inside it.
+
 ### 2. Download, build, and run
 
 ```bash
@@ -63,6 +85,20 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 
 ./build/pcd_server
+```
+
+On Windows, run the equivalent from a **Developer Command Prompt for VS 2022**:
+
+```bat
+git clone https://github.com/stephanj/pcdServer.git
+cd pcdServer
+
+scripts\download-default-model.cmd
+cmake -S . -B build
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+
+build\Release\pcd_server.exe
 ```
 
 The first configure/build fetches pinned dependencies and compiles llama.cpp, so it can take a few minutes. The download script installs `Qwen3.5-0.8B-Q8_0.gguf` under `models/` and verifies its SHA-256 checksum.
@@ -345,7 +381,7 @@ Startup model precedence is:
 2. `PCD_GGUF`
 3. `models/Qwen3.5-0.8B-Q8_0.gguf`
 
-If that file does not exist, the server still starts. `/health` reports `ready: false`, and decode requests return `503` until a model is selected. `SIGINT` and `SIGTERM` stop the listener and release the active model cleanly.
+If that file does not exist, the server still starts. `/health` reports `ready: false`, and decode requests return `503` until a model is selected. `SIGINT` and `SIGTERM` (or `Ctrl+C`/`Ctrl+Break` on Windows) stop the listener and release the active model cleanly.
 
 ## How a decode works
 
@@ -410,10 +446,13 @@ Run the benchmark with:
 
 It performs one warm-up, then measures a cold and cached decode for each run. Output includes median phase timings, checkpoint bytes, cache statuses, and selected values. CTest does not enforce timing thresholds.
 
+[GitHub Actions](.github/workflows/ci.yml) builds and tests every push and pull request on Windows x64 and macOS arm64, including the `[native]` tests and `tests/e2e.sh` against the default model. Pushing a `v*` tag also packages both builds and attaches them to a GitHub Release.
+
 ## Current scope
 
 ### Supported
 
+- macOS on Apple Silicon (Metal), Linux, and Windows 10/11 x64 (CPU, optional Vulkan or CUDA when built from source)
 - Local GGUF models supported by the pinned llama.cpp runtime
 - Bounded string enums with 2–256 distinct, non-empty choices
 - Boolean fields expressed as `[false, true]`

@@ -7,6 +7,15 @@
 #include <iostream>
 #include <string>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+
+#include <condition_variable>
+#include <mutex>
+#endif
+
 namespace {
 
 struct Config {
@@ -68,13 +77,52 @@ Config parse_args(int argc, char ** argv) {
     return config;
 }
 
+#ifdef _WIN32
+// Console control events arrive on a thread the system creates; the handler
+// only records the event and wakes the main thread, which runs the shutdown.
+std::mutex shutdown_mutex;
+std::condition_variable shutdown_cv;
+DWORD shutdown_event = 0;
+bool shutdown_requested = false;
+
+BOOL WINAPI on_console_event(DWORD event) {
+    {
+        std::lock_guard lock(shutdown_mutex);
+        shutdown_event = event;
+        shutdown_requested = true;
+    }
+    shutdown_cv.notify_one();
+    return TRUE;
+}
+
+void install_shutdown_handler() {
+    SetConsoleCtrlHandler(on_console_event, TRUE);
+}
+
+int wait_for_shutdown_signal() {
+    std::unique_lock lock(shutdown_mutex);
+    shutdown_cv.wait(lock, [] { return shutdown_requested; });
+    return static_cast<int>(shutdown_event);
+}
+#else
 // SIGINT/SIGTERM are blocked on every thread and consumed here so shutdown
 // runs on the main thread with ordinary (non-async-signal) code.
-int wait_for_shutdown_signal(const sigset_t & set) {
+sigset_t shutdown_signals;
+
+// Must run before any other thread starts so every thread inherits the mask.
+void install_shutdown_handler() {
+    sigemptyset(&shutdown_signals);
+    sigaddset(&shutdown_signals, SIGINT);
+    sigaddset(&shutdown_signals, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &shutdown_signals, nullptr);
+}
+
+int wait_for_shutdown_signal() {
     int signal = 0;
-    sigwait(&set, &signal);
+    sigwait(&shutdown_signals, &signal);
     return signal;
 }
+#endif
 
 }  // namespace
 
@@ -88,11 +136,7 @@ int main(int argc, char ** argv) {
         return 2;
     }
 
-    sigset_t signals;
-    sigemptyset(&signals);
-    sigaddset(&signals, SIGINT);
-    sigaddset(&signals, SIGTERM);
-    pthread_sigmask(SIG_BLOCK, &signals, nullptr);
+    install_shutdown_handler();
 
     pcd::LlamaRuntime::quiet_logging();
     pcd::EngineOptions options;
@@ -123,7 +167,7 @@ int main(int argc, char ** argv) {
     }
     std::cerr << "pcd_server " << pcd::api_version << " listening on http://" << config.bind << ":" << server.port() << "\n";
 
-    const int signal = wait_for_shutdown_signal(signals);
+    const int signal = wait_for_shutdown_signal();
     std::cerr << "received signal " << signal << ", shutting down\n";
     server.stop();
     return 0;

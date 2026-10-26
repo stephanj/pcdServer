@@ -1,0 +1,5 @@
+# Embedded UI assets and scripts must be byte-identical on every platform.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.png binary
+*.gguf binary

@@ -15,7 +15,10 @@ work="$(mktemp -d)"
 [[ -f "$fixture" ]] || { echo "fixture not found: $fixture" >&2; exit 1; }
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 
-port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')"
+# jq on Windows writes CRLF line endings, which break string comparisons.
+jq() { command jq "$@" | tr -d '\r'; }
+
+port="$("${PYTHON:-python3}" -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])' | tr -d '\r')"
 "$server" --model "$model" --port "$port" >"$work/server.log" 2>&1 &
 pid=$!
 cleanup() {
@@ -34,7 +37,7 @@ done
 test "$(jq -r '.ready' "$work/health.json")" = "true" || { echo "server never became ready"; cat "$work/server.log"; exit 1; }
 
 post() {
-    curl -sf -X POST "http://127.0.0.1:$port/v1/pcd/decode" -H 'Content-Type: application/json' --data-binary "@$fixture"
+    curl -sf -X POST "http://127.0.0.1:$port/v1/pcd/decode" -H 'Content-Type: application/json' --data-binary @- <"$fixture"
 }
 post >"$work/first.json"
 post >"$work/second.json"

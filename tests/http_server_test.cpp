@@ -2,13 +2,13 @@
 #include "pcd/http_server.hpp"
 #include "pcd/ui_assets.hpp"
 #include "pcd/version.hpp"
+#include "temp_dir.hpp"
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
 #include <cstdlib>
 #include <filesystem>
-#include <unistd.h>
 
 using nlohmann::json;
 namespace fs = std::filesystem;
@@ -21,14 +21,8 @@ struct Fixture {
     pcd::HttpServer server;
     httplib::Client client;
 
-    static fs::path make_dir() {
-        std::string tmpl = (fs::temp_directory_path() / "pcd-http-XXXXXX").string();
-        REQUIRE(mkdtemp(tmpl.data()) != nullptr);
-        return tmpl;
-    }
-
     Fixture()
-        : dir(make_dir()),
+        : dir(pcd::test::make_temp_dir("pcd-http-")),
           manager(pcd::ModelCatalog(dir), {}),
           server(manager, {.bind = "127.0.0.1", .port = 0}),
           client("127.0.0.1", (server.start(), server.port())) {}

@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.25)
-project(pcd_server VERSION 0.1.0 LANGUAGES C CXX)
+project(pcd_server VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Windows: link the C++ runtime statically so the exe runs without the Visual
+# C++ Redistributable, and keep llama.cpp off MSVC OpenMP (vcomp140.dll).
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+if(MSVC)
+    set(GGML_OPENMP OFF CACHE BOOL "")
+    add_compile_options(/utf-8)
+endif()
 
 include(FetchContent)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
